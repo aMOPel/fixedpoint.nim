@@ -5,7 +5,6 @@ import fixedpoint
 assert `$`($$3) == "0.000"
 assert `$`(1000$$2) == "10.00"
 
-assert `$`($$10.0) == "10.0"
 assert `$`(10.0$$2) == "10.00"
 assert `$`($$"10.00") == "10.00"
 
@@ -39,12 +38,12 @@ assert 100000$$2 > 1234$$1
 # == >= <=
 
 # convert back to float
-assert toFloat($$10.0) == 10.0
-assert toInt($$10.6) == 11
+assert toFloat(10.0$$1) == 10.0
+assert toInt(10.6$$1) == 11
 
 # change decimalPlaces after construction:
-var a = $$10.1 
-var b = $$10.157
+var a = 10.1$$1
+var b = 10.157$$3
 a.setDecimalPlaces(3)
 b.setDecimalPlaces(2)
 assert $a == "10.100"
@@ -125,3 +124,10 @@ assert $$"2.002" >= $$2.001
 # conversion back to float
 assert toFloat($$10.0) == 10.0
 assert toInt($$10.6) == 11
+
+# correct truncation after rounding when converting from float 
+assert 0.5641666666666667$$2 == 0.56$$2
+
+# big number multiplication
+assert `$`(int(5000000000000)$$10 * int(500000000)$$10) == "25.0000000000"
+

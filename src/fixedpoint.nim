@@ -10,7 +10,7 @@ type
   FixedPoint* = object
     decimalPlaces: int
     number: int
-  DecimalStrategy* = enum 
+  DecimalStrategy* = enum
     ## strategy when operating on 2 FixedPoints with different `decimalPlaces`
     ## either keep more decimalPlaces or less
     dsKeepMore
@@ -71,6 +71,10 @@ proc fixedPoint*(a: float, decimalPlaces = 0): FixedPoint =
     var dPdiff = decimalPlaces - actualDecimalPlaces
     if dPdiff < 0:
       str = `$`(a.round(decimalPlaces))
+      # rounding can leave the float with too many decimalPlaces because of float inaccuracy
+      # eg 0.5641666666666667.round(2) = 0.5600000000000001
+      if str.len - dotPos > decimalPlaces:
+        str = str[0..dotPos+decimalPlaces]
       # rounding can reduce decimalPlaces too much, by cutting trailing zeros
       dPdiff = decimalPlaces - (str.len - str.find(".") - 1)
       if dPdiff > 0:
@@ -81,8 +85,8 @@ proc fixedPoint*(a: float, decimalPlaces = 0): FixedPoint =
   FixedPoint(
     number: str.parseInt,
     decimalPlaces:
-      if decimalPlaces != 0: decimalPlaces
-      else: actualDecimalPlaces
+    if decimalPlaces != 0: decimalPlaces
+    else: actualDecimalPlaces
   )
 
 template `$$`*(decimalPlaces: int): FixedPoint =
@@ -106,7 +110,7 @@ template toInt*(a: FixedPoint): int =
 proc `<`*(a, b: FixedPoint): bool =
   let dPdiff = a.decimalPlaces - b.decimalPlaces
   if dPdiff != 0:
-    var 
+    var
       tempa = a
       tempb = b
     tempa.setDecimalPlaces(tempb)
@@ -115,13 +119,13 @@ proc `<`*(a, b: FixedPoint): bool =
     a.number < b.number
 
 template `>`*(a, b: FixedPoint): bool =
-  (b<a)
+  (b < a)
 
 template `<=`*(a, b: FixedPoint): bool =
-  ((a==b)or(a<b))
+  ((a == b) or (a < b))
 
 template `>=`*(a, b: FixedPoint): bool =
-  ((a==b)or(a>b))
+  ((a == b) or (a > b))
 
 proc `+`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): FixedPoint =
   let dPdiff = a.decimalPlaces - b.decimalPlaces
@@ -134,7 +138,8 @@ proc `+`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): FixedPoin
         less.setDecimalPlaces(more)
       of dsKeepLess:
         more.setDecimalPlaces(less)
-    FixedPoint(number: less.number+more.number, decimalPlaces: less.decimalPlaces)
+    FixedPoint(number: less.number+more.number,
+        decimalPlaces: less.decimalPlaces)
   else:
     FixedPoint(number: a.number+b.number, decimalPlaces: a.decimalPlaces)
 
@@ -145,8 +150,11 @@ template `-`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): Fixed
   `+`(a, (-b), decimalStrategy)
 
 proc `*`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): FixedPoint =
-  result = FixedPoint(number: a.number*b.number,
-      decimalPlaces: a.decimalPlaces+b.decimalPlaces)
+  try:
+    result = FixedPoint(number: a.number*b.number,
+                        decimalPlaces: a.decimalPlaces+b.decimalPlaces)
+  except OverflowDefect:
+    result = fixedPoint(a.toFloat*b.toFloat)
   let dPdiff = a.decimalPlaces - b.decimalPlaces
   if dPdiff != 0:
     var
@@ -161,6 +169,7 @@ proc `*`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): FixedPoin
     result.setDecimalPlaces(a)
 
 proc `/`*(a, b: FixedPoint, decimalStrategy = defaultDecimalStrategy): FixedPoint =
+  ## this converts to float and back and is thus a little slow
   let dPdiff = a.decimalPlaces - b.decimalPlaces
   if dPdiff != 0:
     var
@@ -196,7 +205,7 @@ template `/=`*(a: var FixedPoint, b: FixedPoint,
 
 proc `$`*(a: FixedPoint): string =
   # TODO: missing logic for a case (number: 1, decimalPlaces: 2) ie 0.01
-  let splitSign = `$`(a.number).split('-', maxsplit=1)
+  let splitSign = `$`(a.number).split('-', maxsplit = 1)
   var
     sign = ""
     number = ""
@@ -210,7 +219,7 @@ proc `$`*(a: FixedPoint): string =
     numberLen = number.len
     beforeIndex = numberLen - (a.decimalPlaces+1)
     afterIndex = numberLen - (a.decimalPlaces)
-  var 
+  var
     before = ""
     after = ""
   if beforeIndex < 0: before = "0"
@@ -222,4 +231,3 @@ proc `$`*(a: FixedPoint): string =
   result = sign & before & "." & after
 
 # when isMainModule:
-
